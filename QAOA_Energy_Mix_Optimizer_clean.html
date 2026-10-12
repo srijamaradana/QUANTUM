@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>QAOA Energy Mix Optimizer</title>
+<style>
+:root{--bg:#F4F7F6;--card:#fff;--ink:#0B2E33;--mute:#4C6B6E;--line:#CADCDA;--teal:#00A896;--deep:#028090;--bar:#0B2E33;--grey:#B4B5AB;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#071C20;--card:#0E2D32;--ink:#EAF3F2;--mute:#9DBDBA;--line:#1F4A50;--bar:#5FB8B0;--grey:#4A6468}}
+:root[data-theme="dark"]{--bg:#071C20;--card:#0E2D32;--ink:#EAF3F2;--mute:#9DBDBA;--line:#1F4A50;--bar:#5FB8B0;--grey:#4A6468}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:60px}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Calibri,"Segoe UI",system-ui,sans-serif}
+h1,h2,h3{font-family:Cambria,Georgia,serif;margin:0 0 .4em;line-height:1.2}
+nav{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);display:flex;gap:18px;padding:12px 20px;overflow-x:auto;white-space:nowrap;font-size:14px}
+nav b{color:var(--teal);margin-right:auto}nav a{color:var(--mute);text-decoration:none}nav a:hover{color:var(--teal)}
+section{max-width:1040px;margin:0 auto;padding:48px 20px}
+.hero{background:#0B2E33;color:#fff;max-width:none;padding:72px 20px}.hero>div{max-width:1040px;margin:auto}
+.hero h1{font-size:clamp(28px,5vw,46px)}.hero p{color:#CADCDA;max-width:640px}.tag{color:#00A896;letter-spacing:.15em;font-size:13px;font-weight:700}
+.btn{background:var(--teal);color:#fff;border:0;border-radius:8px;padding:11px 20px;font:inherit;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block}
+.btn.alt{background:transparent;border:1px solid var(--line);color:var(--ink)}.btn:disabled{opacity:.5}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+.num{width:30px;height:30px;border-radius:50%;background:var(--teal);color:#fff;display:grid;place-items:center;font-weight:700;margin-bottom:8px}
+.sub{color:var(--mute)}
+.src{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
+.chip{flex:1 1 150px;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:10px;cursor:pointer;text-align:left;font:inherit}
+.chip.on{border-color:var(--teal);background:rgba(0,168,150,.12)}.chip small{display:block;color:var(--mute)}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:10px 0}
+input[type=range]{accent-color:var(--teal);flex:1;min-width:160px}
+canvas{width:100%;height:220px;display:block}
+.stats{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin:14px 0}
+.stat{background:var(--bg);border-radius:10px;padding:12px}.stat b{display:block;font-size:24px;font-family:Cambria,Georgia,serif}
+.good{color:var(--teal)}pre{background:#0B2E33;color:#CADCDA;padding:16px;border-radius:10px;overflow-x:auto;font-size:13px}
+.scroll{overflow-x:auto}img{max-width:100%;border-radius:10px;background:#fff}
+footer{text-align:center;color:var(--mute);padding:30px 20px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<nav><b>⚡ QAOA Energy</b><a href="#problem">Problem</a><a href="#demo">Live demo</a><a href="#scale">Complexity</a></nav>
+
+<section class="hero"><div>
+<div class="tag">QUANTUM CAPSTONE PROJECT</div>
+<h1>Hybrid Quantum-Classical Optimization for Renewable Energy Source Selection</h1>
+<p>Which sources should we switch on this hour to meet demand at the lowest cost and pollution? Try it live: a 5-qubit QAOA simulation runs right in your browser.</p>
+<a class="btn" href="#demo">Launch the demo</a>
+</div></section>
+
+<section id="problem">
+<h2>The problem</h2>
+<div class="grid">
+<div class="card"><h3>☀️ 💨 🔋 🔌</h3><p>Each hour we choose from solar panels, a wind turbine, a battery and a backup grid connection to meet demand.</p></div>
+<div class="card"><h3>Explosive choices</h3><p>With n sources there are 2ⁿ on/off combinations. Every extra source doubles the search.</p></div>
+<div class="card"><h3>Why it matters</h3><p>A wrong mix wastes money, wastes clean energy, or leans on the dirtier backup grid.</p></div>
+</div></section>
+
+<section id="demo">
+<h2>Live demo</h2>
+<p class="sub">Step 1: set the demand and toggle sources to see a combination's score. Step 2: run QAOA and compare with brute force.</p>
+<div class="card">
+<div class="row"><label for="dem"><b>Hourly demand:</b> <span id="demv">90</span> kWh</label><input id="dem" type="range" min="30" max="150" step="5" value="90"></div>
+<div class="src" id="src"></div>
+<div class="stats">
+<div class="stat">Selected combination<b id="selbits">—</b></div>
+<div class="stat">Supply<b id="selsup">—</b></div>
+<div class="stat">Score (lower = better)<b id="selcost">—</b></div>
+</div>
+<p class="sub" style="margin:0">Score = money cost + 8 × emissions + 0.05 × (supply − demand)²</p>
+</div>
+
+<h3 style="margin-top:28px">① Classical brute force: all 32 combinations</h3>
+<div class="card"><canvas id="c1"></canvas><div class="stats"><div class="stat">True best combination<b id="bfbest" class="good">—</b></div><div class="stat">Best score<b id="bfcost">—</b></div></div></div>
+
+<h3 style="margin-top:28px">② Hybrid quantum-classical loop (QAOA)</h3>
+<div class="card">
+<div class="row"><label for="p"><b>QAOA layers (p):</b> <span id="pv">2</span></label><input id="p" type="range" min="1" max="4" value="2" style="max-width:240px">
+<button class="btn" id="run">▶ Run QAOA</button><button class="btn alt" id="reset">Reset</button></div>
+<div class="grid"><div><b>Quantum state probability</b><canvas id="c2"></canvas></div><div><b>Classical optimizer converging</b><canvas id="c3"></canvas></div></div>
+<p class="sub" id="status">Press “Run QAOA” to start.</p>
+<div class="stats">
+<div class="stat">QAOA answer<b id="qans">—</b></div><div class="stat">QAOA score<b id="qcost">—</b></div>
+<div class="stat">Rank out of 32<b id="qrank">—</b></div><div class="stat">Optimizer steps<b id="qit">—</b></div>
+</div></div>
+</section>
+
+<section id="scale">
+<h2>Complexity: how effort grows</h2>
+<div class="card"><div class="row"><label for="nn"><b>Number of sources n:</b> <span id="nnv">5</span></label><input id="nn" type="range" min="2" max="60" value="5"></div>
+<div class="stats"><div class="stat">Brute force checks (2ⁿ)<b id="bf">32</b></div><div class="stat">QAOA qubits needed (n)<b id="qb">5</b></div></div>
+<p class="sub">Classical brute force doubles with every added source. On real quantum hardware QAOA needs only n qubits. Our simulation on a normal computer still needs 2ⁿ memory, as noted in the project.</p></div>
+</section>
+
+
+<script>
+const SRC=[{n:"Solar A",e:"☀️",cap:30,cost:.04,em:0},{n:"Solar B",e:"☀️",cap:25,cost:.04,em:0},{n:"Wind",e:"💨",cap:35,cost:.06,em:.01},{n:"Battery",e:"🔋",cap:20,cost:.10,em:.01},{n:"Backup grid",e:"🔌",cap:40,cost:.15,em:.6}];
+const N=5,M=32;let demand=90,sel=0,C=[],best=0,hist=[],probs=null,qa=null,timer=null;
+const $=id=>document.getElementById(id),css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const on=(i,k)=>(i>>(N-1-k))&1;
+const bitstr=i=>i.toString(2).padStart(N,"0");
+const supply=i=>SRC.reduce((a,s,k)=>a+on(i,k)*s.cap,0);
+function score(i){let m=0,e=0,s=0;SRC.forEach((x,k)=>{if(on(i,k)){s+=x.cap;m+=x.cap*x.cost;e+=x.cap*x.em}});return m+8*e+.05*(s-demand)**2}
+function compute(){C=[...Array(M).keys()].map(score);best=C.indexOf(Math.min(...C))}
+function names(i){const a=SRC.filter((s,k)=>on(i,k)).map(s=>s.n);return a.length?a.join(" + "):"none"}
+// ---- quantum simulation (statevector, 5 qubits) ----
+function run(params,Cn){
+  let re=new Float64Array(M).fill(1/Math.sqrt(M)),im=new Float64Array(M);
+  for(let l=0;l<params.length/2;l++){
+    const g=params[2*l],b=params[2*l+1],cb=Math.cos(b),sb=Math.sin(b);
+    for(let i=0;i<M;i++){const c=Math.cos(g*Cn[i]),s=-Math.sin(g*Cn[i]),r=re[i];re[i]=r*c-im[i]*s;im[i]=r*s+im[i]*c}
+    for(let q=0;q<N;q++)for(let i=0;i<M;i++){if(i>>q&1)continue;const j=i|1<<q,ar=re[i],ai=im[i],br=re[j],bi=im[j];
+      re[i]=cb*ar+sb*bi;im[i]=cb*ai-sb*br;re[j]=cb*br+sb*ai;im[j]=cb*bi-sb*ar}
+  }
+  return Array.from(re,(r,i)=>r*r+im[i]*im[i]);
+}
+function nelder(f,x0,iters){
+  const n=x0.length;let S=[x0.slice()];
+  for(let i=0;i<n;i++){const x=x0.slice();x[i]+=.4;S.push(x)}
+  let F=S.map(f);const trace=[Math.min(...F)];
+  for(let it=0;it<iters;it++){
+    const o=F.map((v,i)=>i).sort((a,b)=>F[a]-F[b]);S=o.map(i=>S[i]);F=o.map(i=>F[i]);
+    const c=Array(n).fill(0);for(let i=0;i<n;i++)S[i].forEach((v,d)=>c[d]+=v/n);
+    const pt=t=>c.map((v,d)=>v+t*(S[n][d]-v)),r=pt(-1),fr=f(r);
+    if(fr<F[0]){const e=pt(-2),fe=f(e);if(fe<fr){S[n]=e;F[n]=fe}else{S[n]=r;F[n]=fr}}
+    else if(fr<F[n-1]){S[n]=r;F[n]=fr}
+    else{const k=pt(fr<F[n]?-.5:.5),fk=f(k);if(fk<Math.min(fr,F[n])){S[n]=k;F[n]=fk}else{for(let i=1;i<=n;i++){S[i]=S[i].map((v,d)=>S[0][d]+.5*(v-S[0][d]));F[i]=f(S[i])}}}
+    trace.push(Math.min(...F));
+  }
+  const bi=F.indexOf(Math.min(...F));return{x:S[bi],trace};
+}
+function qaoa(p){
+  const mn=Math.min(...C),mx=Math.max(...C),Cn=C.map(v=>(v-mn)/(mx-mn)*3);
+  const f=x=>run(x,Cn).reduce((a,pr,i)=>a+pr*C[i],0);
+  let bestStart=null,bf=1e18;
+  for(let t=0;t<40;t++){const x=Array.from({length:2*p},()=>Math.random()*1.6);const v=f(x);if(v<bf){bf=v;bestStart=x}}
+  const r=nelder(f,bestStart,120*p);return{pr:run(r.x,Cn),trace:r.trace,x:r.x};
+}
+// ---- drawing ----
+function setup(cv){const d=devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;cv.width=w*d;cv.height=h*d;const g=cv.getContext("2d");g.setTransform(d,0,0,d,0,0);g.clearRect(0,0,w,h);g.font="11px Calibri,sans-serif";return[g,w,h]}
+function bars(cv,vals,colors,label){
+  const[g,w,h]=setup(cv),mx=Math.max(...vals)||1,bw=(w-36)/vals.length;
+  vals.forEach((v,i)=>{const bh=(h-34)*v/mx;g.fillStyle=colors(i);g.fillRect(30+i*bw+1,h-20-bh,bw-2,bh)});
+  g.fillStyle=css("--mute");g.textAlign="center";[0,8,16,24,31].forEach(i=>g.fillText(i,30+i*bw+bw/2,h-6));
+  g.textAlign="left";g.fillText(label,30,12);
+}
+function drawBF(){bars($("c1"),C,i=>i==best?css("--teal"):i==sel?css("--deep"):css("--bar"),"Score of each combination (0–31). Green = true best, blue = your selection")}
+function drawProb(){const p=probs||Array(M).fill(0);const top=probs?p.indexOf(Math.max(...p)):-1;
+  bars($("c2"),p.map(v=>v*100),i=>i==top?css("--deep"):i==best?css("--teal"):css("--grey"),"Probability if measured (%). Blue = QAOA pick, green = true best")}
+function drawLine(upto){
+  const[g,w,h]=setup($("c3"));if(!hist.length){g.fillStyle=css("--mute");g.fillText("average score vs optimizer step",30,12);return}
+  const mx=Math.max(...hist),mn=Math.min(C[best],...hist),sx=i=>30+(w-40)*i/(hist.length-1),sy=v=>10+(h-34)*(1-(v-mn)/(mx-mn||1));
+  g.strokeStyle=css("--teal");g.setLineDash([5,4]);g.beginPath();g.moveTo(30,sy(C[best]));g.lineTo(w-10,sy(C[best]));g.stroke();g.setLineDash([]);
+  g.strokeStyle=css("--deep");g.lineWidth=2.5;g.beginPath();for(let i=0;i<=upto;i++)i?g.lineTo(sx(i),sy(hist[i])):g.moveTo(sx(i),sy(hist[i]));g.stroke();g.lineWidth=1;
+  g.fillStyle=css("--mute");g.fillText("dashed = true optimum",34,h-6);
+}
+// ---- UI ----
+function chips(){$("src").innerHTML="";SRC.forEach((s,k)=>{const b=document.createElement("button");b.className="chip"+(on(sel,k)?" on":"");
+  b.innerHTML=`${s.e} <b>${s.n}</b><small>${s.cap} kWh · cost ${s.cost}/kWh · CO₂ ${s.em}</small>`;
+  b.onclick=()=>{sel^=1<<(N-1-k);refresh()};$("src").appendChild(b)})}
+function refresh(){compute();chips();$("demv").textContent=demand;$("selbits").textContent=bitstr(sel);$("selsup").textContent=supply(sel)+" kWh";$("selcost").textContent=C[sel].toFixed(2);
+  $("bfbest").textContent=bitstr(best)+" · "+names(best);$("bfcost").textContent=C[best].toFixed(2);drawBF();resetQ()}
+function resetQ(){clearInterval(timer);hist=[];probs=null;["qans","qcost","qrank","qit"].forEach(i=>$(i).textContent="—");$("status").textContent="Press “Run QAOA” to start.";$("run").disabled=false;drawProb();drawLine(0)}
+$("dem").oninput=e=>{demand=+e.target.value;refresh()};
+$("p").oninput=e=>{$("pv").textContent=e.target.value;resetQ()};
+$("reset").onclick=resetQ;
+$("run").onclick=()=>{
+  resetQ();$("run").disabled=true;$("status").textContent="Classical optimizer is tuning γ and β…";
+  const r=qaoa(+$("p").value);hist=r.trace;qa=r;let i=0;
+  timer=setInterval(()=>{i=Math.min(hist.length-1,i+Math.ceil(hist.length/60));drawLine(i);$("qit").textContent=i;
+    if(i>=hist.length-1){clearInterval(timer);probs=r.pr;const a=probs.indexOf(Math.max(...probs)),rank=[...C].sort((x,y)=>x-y).indexOf(C[a])+1;
+      $("qans").textContent=bitstr(a);$("qcost").textContent=C[a].toFixed(2);$("qrank").textContent=rank+" / 32";drawProb();
+      $("status").innerHTML=(a==best?"✅ QAOA found the true optimum: ":"QAOA picked ")+"<b>"+names(a)+"</b>"+(a==best?"":` (rank ${rank} of 32). Try more layers for a sharper answer.`);$("run").disabled=false}},40)};
+$("nn").oninput=e=>{const n=+e.target.value;$("nnv").textContent=n;$("bf").textContent=n<50?(2**n).toLocaleString():"2^"+n;$("qb").textContent=n};
+addEventListener("resize",()=>{drawBF();drawProb();drawLine(hist.length)});
+sel=best;refresh();sel=best;refresh();
+</script>
+</body>
+</html>
